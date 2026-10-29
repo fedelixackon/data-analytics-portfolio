@@ -8,7 +8,7 @@ Technical Skills
 
 Programming: SQL, Python, R
 
-Visualization: Power BI, Tableau
+Visualization: Power BI
 
 Analytics: Statistical Analysis, Predictive Modeling, Machine Learning
 
