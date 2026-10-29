@@ -1,0 +1,789 @@
+
+rm(list = ls())
+graphics.off()
+cat("\014")
+library(caret)
+library(MASS)
+library(e1071)
+library(pROC)
+library(randomForest)
+df <- read.csv(
+  file = "online_shoppers_intention.csv",
+  header = TRUE
+)
+# Checking the dataset
+dim(df)
+str(df)
+head(df)
+colSums(is.na(df))
+# Preparing categorical variables
+df$Month <- factor(
+  df$Month,
+  levels = c(
+    "Feb", "Mar", "May", "June", "Jul",
+    "Aug", "Sep", "Oct", "Nov", "Dec"
+  )
+)
+# Visitor Type
+df$VisitorType <- factor(df$VisitorType)
+
+df$OperatingSystems <- factor(df$OperatingSystems)
+df$Browser <- factor(df$Browser)
+df$Region <- factor(df$Region)
+df$TrafficType <- factor(df$TrafficType)
+
+# Weekend
+df$Weekend <- factor(
+  df$Weekend,
+  levels = c(FALSE, TRUE),
+  labels = c("Weekday", "Weekend")
+)
+# Revenue (Response Variable)
+df$Revenue <- factor(
+  df$Revenue,
+  levels = c(FALSE, TRUE),
+  labels = c("No Purchase", "Purchase")
+)
+str(df)
+# # Figure 1: Distribution of Revenue
+revenue_count <- table(df$Revenue)
+revenue_percent <- prop.table(revenue_count) * 100
+# Display counts and percentages
+revenue_count
+round(revenue_percent, 2)
+bar_midpoints <- barplot(
+  revenue_count,
+  main = "Distribution of Online Shopping Outcomes",
+  xlab = "Purchase Outcome",
+  ylab = "Number of Sessions",
+  ylim = c(0, max(revenue_count) * 1.15),
+
+)
+
+# Add counts and percentages above the bars
+text(
+  x = bar_midpoints,
+  y = revenue_count,
+  labels = paste0(
+    revenue_count,
+    "\n(",
+    round(revenue_percent, 1),
+    "%)"
+  ),
+  pos = 3
+)
+#----------------------------------------------------------
+# Purchase Rate by Visitor type
+visitor_table <- table(
+  df$VisitorType,
+  df$Revenue
+)
+
+visitor_purchase_rate <- prop.table(
+  visitor_table,
+  margin = 1
+)[, "Purchase"] * 100
+round(visitor_purchase_rate, 2)
+bar_midpoints <- barplot(
+  visitor_purchase_rate,
+  main = "Purchase Rate by Visitor Type",
+  xlab = "Visitor Type",
+  ylab = "Purchase Rate (%)",
+  las = 2,
+  ylim = c(0, max(visitor_purchase_rate) * 1.20),
+  cex.names = 0.6
+)
+text(
+  x = bar_midpoints,
+  y = visitor_purchase_rate,
+  labels = paste0(round(visitor_purchase_rate, 1), "%"),
+  pos = 3
+)
+#--------------------------------------
+#Purchase Rate by Month
+
+month_table <- table(
+  df$Month,
+  df$Revenue
+)
+month_purchase_rate <- prop.table(
+  month_table,
+  margin = 1
+)[, "Purchase"] * 100
+# Display monthly purchase rates
+round(month_purchase_rate, 2)
+bar_midpoints <- barplot(
+  month_purchase_rate,
+  main = "Purchase Rate by Month",
+  xlab = "Month",
+  ylab = "Purchase Rate (%)",
+  las = 2,
+  ylim = c(0, max(month_purchase_rate) * 1.20)
+)
+text(
+  x = bar_midpoints,
+  y = month_purchase_rate,
+  labels = paste0(
+    round(month_purchase_rate, 1),
+    "%"
+  ),
+  pos = 3,
+  cex = 0.8
+)
+
+#product related pages by revenue
+boxplot(
+  ProductRelated ~ Revenue,
+  data = df,
+  main = "Product-Related Pages by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Number of Product-Related Pages"
+)
+# Focused version displaying values up to the 95th percentile
+product_limit <- quantile(
+  df$ProductRelated,
+  0.95,
+  na.rm = TRUE
+)
+boxplot(
+  ProductRelated ~ Revenue,
+  data = df,
+  main = "Product-Related Pages by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Number of Product-Related Pages",
+  ylim = c(0, product_limit)
+)
+#Product-Related Duration by Revenue
+boxplot(
+  ProductRelated_Duration ~ Revenue,
+  data = df,
+  main = "Product Browsing Duration by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Product-Related Duration"
+)
+# Focused version displaying values up to the 95th percentile
+duration_limit <- quantile(
+  df$ProductRelated_Duration,
+  0.95,
+  na.rm = TRUE
+)
+boxplot(
+  ProductRelated_Duration ~ Revenue,
+  data = df,
+  main = "Product Browsing Duration by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Product-Related Duration",
+  ylim = c(0, duration_limit)
+)
+#------------------------------------------------------
+#bounce rate by revenue
+boxplot(
+  BounceRates ~ Revenue,
+  data = df,
+  main = "Bounce Rate by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Bounce Rate"
+)
+# Focused version displaying values up to the 95th percentile
+bounce_limit <- quantile(
+  df$BounceRates,
+  0.95,
+  na.rm = TRUE
+)
+boxplot(
+  BounceRates ~ Revenue,
+  data = df,
+  main = "Bounce Rate by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Bounce Rate",
+  ylim = c(0, bounce_limit)
+)
+#------------------------------------------------------
+#Bounce Rate by Revenue
+boxplot(
+  ExitRates ~ Revenue,
+  data = df,
+  main = "Exit Rate by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Exit Rate"
+)
+
+# Focused version displaying values up to the 95th percentile
+exit_limit <- quantile(
+  df$ExitRates,
+  0.95,
+  na.rm = TRUE
+)
+
+boxplot(
+  ExitRates ~ Revenue,
+  data = df,
+  main = "Exit Rate by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Exit Rate",
+  ylim = c(0, exit_limit)
+)
+#--------------------------------------------------------
+#page value by revenue
+boxplot(
+  PageValues ~ Revenue,
+  data = df,
+  main = "Page Value by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Page Value"
+)
+
+# Focused version displaying values up to the 95th percentile
+page_value_limit <- quantile(
+  df$PageValues,
+  0.95,
+  na.rm = TRUE
+)
+
+boxplot(
+  PageValues ~ Revenue,
+  data = df,
+  main = "Page Value by Purchase Outcome",
+  xlab = "Purchase Outcome",
+  ylab = "Page Value",
+  ylim = c(0, page_value_limit)
+)
+#----------------------------------------------------------
+#correlation heatmap
+
+numeric_names <- c(
+  "Administrative",
+  "Administrative_Duration",
+  "Informational",
+  "Informational_Duration",
+  "ProductRelated",
+  "ProductRelated_Duration",
+  "BounceRates",
+  "ExitRates",
+  "PageValues",
+  "SpecialDay"
+)
+
+numeric_data <- df[, numeric_names]
+
+cor_matrix <- cor(
+  numeric_data,
+  use = "complete.obs"
+)
+
+# Display the correlation matrix
+round(cor_matrix, 2)
+
+heatmap(
+  cor_matrix,
+  Rowv = NA,
+  Colv = NA,
+  scale = "none",
+  margins = c(10, 10),
+  main = "Correlation Heatmap of Numerical Predictors",
+  cex.main = 0.6,
+  cexRow = 0.65,
+  cexCol = 0.65 
+)
+#-------------------------------------------------------
+#model development
+#--------------------------------------------------------------
+## Prepare data for modeling
+model_df <- df
+model_df$Revenue <- factor(
+  model_df$Revenue,
+  levels = c("No Purchase", "Purchase"),
+  labels = c("NoPurchase", "Purchase")
+)
+
+table(model_df$Revenue)
+prop.table(table(model_df$Revenue))
+## Stratified training and testing split
+set.seed(7406)
+train_index <- createDataPartition(
+  model_df$Revenue,
+  p = 0.80,
+  list = FALSE
+)
+
+train_data <- model_df[train_index, ]
+test_data <- model_df[-train_index, ]
+# Check dataset sizes
+dim(train_data)
+dim(test_data)
+# Check class proportions
+prop.table(table(train_data$Revenue))
+prop.table(table(test_data$Revenue))
+#---------------------------------------------
+#model evaluation
+evaluate_model <- function(model_name, actual, predicted, probability) {
+  
+  actual <- factor(
+    actual,
+    levels = c("NoPurchase", "Purchase")
+  )
+  
+  predicted <- factor(
+    predicted,
+    levels = c("NoPurchase", "Purchase")
+  )
+  
+  cm <- table(
+    Predicted = predicted,
+    Actual = actual
+  )
+  
+  TN <- cm["NoPurchase", "NoPurchase"]
+  FN <- cm["NoPurchase", "Purchase"]
+  FP <- cm["Purchase", "NoPurchase"]
+  TP <- cm["Purchase", "Purchase"]
+  
+  accuracy <- (TP + TN) / sum(cm)
+  
+  sensitivity <- ifelse(
+    TP + FN == 0,
+    NA,
+    TP / (TP + FN)
+  )
+  
+  specificity <- ifelse(
+    TN + FP == 0,
+    NA,
+    TN / (TN + FP)
+  )
+  
+  precision <- ifelse(
+    TP + FP == 0,
+    NA,
+    TP / (TP + FP)
+  )
+  
+  f1_score <- ifelse(
+    is.na(precision) |
+      is.na(sensitivity) |
+      precision + sensitivity == 0,
+    NA,
+    2 * precision * sensitivity /
+      (precision + sensitivity)
+  )
+  
+  roc_object <- roc(
+    response = actual,
+    predictor = probability,
+    levels = c("NoPurchase", "Purchase"),
+    direction = "<",
+    quiet = TRUE
+  )
+  
+  auc_value <- as.numeric(auc(roc_object))
+  
+  results <- data.frame(
+    Model = model_name,
+    Accuracy = accuracy,
+    Sensitivity = sensitivity,
+    Specificity = specificity,
+    Precision = precision,
+    F1_Score = f1_score,
+    AUC = auc_value
+  )
+  
+  return(
+    list(
+      confusion_matrix = cm,
+      results = results
+    )
+  )
+}
+
+#--------------------------------------
+#logistic regression
+  
+logistic_model <- glm(
+  Revenue ~ .,
+  data = train_data,
+  family = binomial
+)
+
+# Predicted probabilities
+logistic_probability <- predict(
+  logistic_model,
+  newdata = test_data,
+  type = "response"
+)
+
+# Convert probabilities into predicted classes
+logistic_prediction <- ifelse(
+  logistic_probability >= 0.50,
+  "Purchase",
+  "NoPurchase"
+)
+
+logistic_prediction <- factor(
+  logistic_prediction,
+  levels = c("NoPurchase", "Purchase")
+)
+
+# Evaluate the model
+logistic_evaluation <- evaluate_model(
+  model_name = "Logistic Regression",
+  actual = test_data$Revenue,
+  predicted = logistic_prediction,
+  probability = logistic_probability
+)
+
+logistic_evaluation$confusion_matrix
+logistic_evaluation$results
+
+#------------------------------
+#creating dummy variables
+
+predictor_data <- model_df[
+  ,
+  names(model_df) != "Revenue"
+]
+
+dummy_model <- dummyVars(
+  ~ .,
+  data = predictor_data,
+  fullRank = TRUE
+)
+
+x_train <- predict(
+  dummy_model,
+  newdata = train_data
+)
+
+x_test <- predict(
+  dummy_model,
+  newdata = test_data
+)
+
+x_train <- as.data.frame(x_train)
+x_test <- as.data.frame(x_test)
+
+# Remove predictors with little or no variation
+nzv_columns <- nearZeroVar(x_train)
+
+if (length(nzv_columns) > 0) {
+  x_train <- x_train[, -nzv_columns, drop = FALSE]
+  x_test <- x_test[, -nzv_columns, drop = FALSE]
+}
+
+dim(x_train)
+dim(x_test)
+
+#------------------------------------------------------
+#linear discrimant analysis
+lda_model <- lda(
+  x = x_train,
+  grouping = train_data$Revenue
+)
+
+lda_output <- predict(
+  lda_model,
+  newdata = x_test
+)
+
+lda_prediction <- lda_output$class
+lda_probability <- lda_output$posterior[, "Purchase"]
+
+lda_evaluation <- evaluate_model(
+  model_name = "LDA",
+  actual = test_data$Revenue,
+  predicted = lda_prediction,
+  probability = lda_probability
+)
+
+lda_evaluation$confusion_matrix
+lda_evaluation$results
+#-------------------------------------
+#Quadratic discriminaant analysis
+
+qda_model <- qda(
+  x = x_train,
+  grouping = train_data$Revenue
+)
+
+qda_output <- predict(
+  qda_model,
+  newdata = x_test
+)
+
+qda_prediction <- qda_output$class
+qda_probability <- qda_output$posterior[, "Purchase"]
+
+qda_evaluation <- evaluate_model(
+  model_name = "QDA",
+  actual = test_data$Revenue,
+  predicted = qda_prediction,
+  probability = qda_probability
+)
+
+qda_evaluation$confusion_matrix
+qda_evaluation$results
+
+#------------------------------------------------------
+# Naive Bayes
+
+nb_model <- naiveBayes(
+  Revenue ~ .,
+  data = train_data
+)
+
+nb_prediction <- predict(
+  nb_model,
+  newdata = test_data,
+  type = "class"
+)
+
+nb_probability_matrix <- predict(
+  nb_model,
+  newdata = test_data,
+  type = "raw"
+)
+
+nb_probability <- nb_probability_matrix[, "Purchase"]
+
+nb_evaluation <- evaluate_model(
+  model_name = "Naive Bayes",
+  actual = test_data$Revenue,
+  predicted = nb_prediction,
+  probability = nb_probability
+)
+
+nb_evaluation$confusion_matrix
+nb_evaluation$results
+
+#--------------------------------------
+# Standardize predictors for KNN
+scaling_model <- preProcess(
+  x_train,
+  method = c("center", "scale")
+)
+
+x_train_scaled <- predict(
+  scaling_model,
+  x_train
+)
+
+x_test_scaled <- predict(
+  scaling_model,
+  x_test
+)
+
+#------------------------------------
+# K-Nearest Neighbors
+
+set.seed(7406)
+
+knn_control <- trainControl(
+  method = "cv",
+  number = 5,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+knn_grid <- expand.grid(
+  k = seq(3, 21, by = 2)
+)
+
+knn_model <- train(
+  x = x_train_scaled,
+  y = train_data$Revenue,
+  method = "knn",
+  metric = "ROC",
+  tuneGrid = knn_grid,
+  trControl = knn_control
+)
+
+# Show the selected k
+knn_model$bestTune
+
+# Display cross-validation results
+knn_model$results
+
+knn_prediction <- predict(
+  knn_model,
+  newdata = x_test_scaled,
+  type = "raw"
+)
+
+knn_probability <- predict(
+  knn_model,
+  newdata = x_test_scaled,
+  type = "prob"
+)[, "Purchase"]
+
+knn_evaluation <- evaluate_model(
+  model_name = "KNN",
+  actual = test_data$Revenue,
+  predicted = knn_prediction,
+  probability = knn_probability
+)
+
+knn_evaluation$confusion_matrix
+knn_evaluation$results
+
+
+#------------------------------------------
+
+#preliminary_results
+
+#prepare data from random forests
+rf_train <- train_data
+rf_test <- test_data
+
+rf_train$Revenue <- factor(
+  rf_train$Revenue,
+  levels = c("Purchase", "NoPurchase")
+)
+
+rf_test$Revenue <- factor(
+  rf_test$Revenue,
+  levels = c("Purchase", "NoPurchase")
+)
+
+# Confirm levels and class distribution
+levels(rf_train$Revenue)
+
+table(rf_train$Revenue)
+table(rf_test$Revenue)
+#cross-validation for random forest
+set.seed(7406)
+
+rf_control <- trainControl(
+  method = "repeatedcv",
+  number = 5,
+  repeats = 3,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary,
+  verboseIter = TRUE
+ 
+)
+#tuning grid for random forest
+rf_grid <-  expand.grid(
+mtry = c(4, 6, 8, 10, 12, 14, 16)
+)
+#fit random forest
+set.seed(7406)
+
+rf_model <- train(
+  Revenue ~ .,
+  data = rf_train,
+  method = "rf",
+  metric = "ROC",
+  tuneGrid = rf_grid,
+  trControl = rf_control,
+  ntree = 500,
+  importance = TRUE
+)
+
+#mtry best value
+rf_model$bestTune
+#results for tested mtry values
+rf_model$results
+#plot for parameter tuning
+plot(
+  rf_model,
+  main = "Random Forest Parameter Tuning"
+)
+#predictions for random forest
+rf_prediction <- predict(
+  rf_model,
+  newdata = rf_test,
+  type = "raw"
+)
+
+rf_probability <- predict(
+  rf_model,
+  newdata = rf_test,
+  type = "prob"
+)[, "Purchase"]
+
+#evaluaitng the random forest
+
+rf_evaluation <- evaluate_model(
+  model_name = "Random Forest",
+  actual = rf_test$Revenue,
+  predicted = rf_prediction,
+  probability = rf_probability
+)
+
+# Confusion matrix
+rf_evaluation$confusion_matrix
+
+# Accuracy, sensitivity, specificity, precision, F1 and AUC
+rf_evaluation$results
+
+#random forest variable importance
+
+rf_importance <- varImp(
+  rf_model,
+  scale = TRUE
+)
+
+rf_importance
+
+plot(
+  rf_importance,
+  top = 10,
+  main = "Top Predictors of Online Purchase Intention"
+)
+#top 10 random forest predictors
+rf_importance_table <- as.data.frame(
+  rf_importance$importance
+)
+
+# Add variable names as a column
+rf_importance_table$Variable <- rownames(
+  rf_importance_table
+)
+
+# Use Purchase importance because Purchase is the target class
+rf_importance_table <- rf_importance_table[
+  order(
+    rf_importance_table$Purchase,
+    decreasing = TRUE
+  ),
+]
+
+# Select the 10 most important predictors
+top10_rf_importance <- head(
+  rf_importance_table,
+  10
+)
+
+rownames(top10_rf_importance) <- NULL
+
+top10_rf_importance
+#final model comparisons
+
+final_model_results <- rbind(
+  logistic_evaluation$results,
+  lda_evaluation$results,
+  qda_evaluation$results,
+  nb_evaluation$results,
+  knn_evaluation$results,
+  rf_evaluation$results
+)
+
+# Round numerical results to four decimal places
+final_model_results[, -1] <- round(
+  final_model_results[, -1],
+  4
+)
+
+final_model_results
+#important model output
+
+rf_model$bestTune
+rf_model$results
+rf_evaluation$confusion_matrix
+rf_evaluation$results
+top10_rf_importance
+final_model_results
+
+
+
+
+
